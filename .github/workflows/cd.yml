@@ -1,0 +1,77 @@
+name: LegalLens CD
+
+# Deploy the exact commit that passed the LegalLens CI workflow on main.
+on:
+  workflow_run:
+    workflows: [LegalLens CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: legallens-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy SHA-tagged images to AKS
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the CI-tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Log in to Azure with GitHub OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v5
+        with:
+          resource-group: rg-legallens
+          cluster-name: aks-legallens
+          admin: 'false'
+
+      - name: Create namespace and application secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "GitHub repository secret OPENAI_API_KEY is required for the backend deployment."
+            exit 1
+          fi
+          kubectl apply -f LegalLens/deploy/k8s/namespace.yaml
+          kubectl create secret generic legallens-secrets \
+            --namespace legallens \
+            --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy the CI-tested images
+        env:
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          sed -i "s/__IMAGE_TAG__/${IMAGE_TAG}/g" LegalLens/deploy/k8s/backend.yaml LegalLens/deploy/k8s/frontend.yaml
+          kubectl apply -f LegalLens/deploy/k8s/backend.yaml
+          kubectl apply -f LegalLens/deploy/k8s/frontend.yaml
+          kubectl rollout status deployment/legallens-backend --namespace legallens --timeout=5m
+          kubectl rollout status deployment/legallens-frontend --namespace legallens --timeout=5m
+
+      - name: Report the public application endpoint
+        run: |
+          for attempt in $(seq 1 30); do
+            address=$(kubectl get service legallens-frontend --namespace legallens --output jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            if [ -n "$address" ]; then
+              echo "LegalLens is available at http://${address}/" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "The frontend LoadBalancer is still provisioning; check the service later with: kubectl get service legallens-frontend -n legallens" >> "$GITHUB_STEP_SUMMARY"
