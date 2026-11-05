@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: legallens-data
+  namespace: legallens
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  # AKS default managed-csi storage class provisions an Azure managed disk.
+  storageClassName: managed-csi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legallens-backend
+  namespace: legallens
+  labels:
+    app.kubernetes.io/name: legallens-backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: legallens-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: legallens-backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: legallensacs.azurecr.io/legallens-backend:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: LEGALLENS_DB_PATH
+              value: /data/legallens.db
+            - name: LEGALLENS_STORAGE_DIR
+              value: /data/documents
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: legallens-secrets
+                  key: OPENAI_API_KEY
+            - name: OPENAI_MODEL
+              value: gpt-6-luna
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: legallens-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: legallens-backend
+  namespace: legallens
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: legallens-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

@@ -79,3 +79,45 @@ jobs:
             LegalLens/backend/reports/coverage/
           if-no-files-found: warn
           retention-days: 14
+
+  # Publish immutable images only after both application builds and backend tests pass.
+  publish-images:
+    name: Publish SHA-tagged images to Azure Container Registry
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure with GitHub OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to ACR
+        run: az acr login --name legallensacs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: LegalLens/backend
+          file: LegalLens/backend/Dockerfile
+          push: true
+          tags: legallensacs.azurecr.io/legallens-backend:${{ github.sha }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: LegalLens/frontend
+          file: LegalLens/frontend/Dockerfile
+          push: true
+          tags: legallensacs.azurecr.io/legallens-frontend:${{ github.sha }}

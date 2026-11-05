@@ -35,7 +35,9 @@ export type DocumentRecord = {
 
 type ApiErrorBody = { error?: { code?: string; message?: string; request_id?: string | null } }
 
-const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000'
+// An empty base uses same-origin requests in Kubernetes, where nginx proxies API
+// paths to the backend service. Local Vite requests use the proxy in vite.config.ts.
+const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
 const API_BASE = configuredBase.replace(/\/$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

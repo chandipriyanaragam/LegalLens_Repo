@@ -18,7 +18,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The API base URL defaults to `http://127.0.0.1:8000`. Override it in `.env.local` with `VITE_API_BASE_URL` if the backend runs elsewhere. Vite uses `http://localhost:5173` by default, which is allowed by the backend's default CORS settings.
+By default, the frontend sends API requests to the same origin. Vite proxies `/api`, `/health`, and `/ready` to `http://127.0.0.1:8000` during local development. Set `VITE_API_BASE_URL` in `.env.local` only when you want to use a different backend URL.
 
 ## Build and run the Docker image
 
@@ -31,10 +31,16 @@ docker build -f LegalLens/frontend/Dockerfile --build-arg VITE_API_BASE_URL=http
 Start the container and open `http://localhost:5173`:
 
 ```powershell
-docker run --rm -p 5173:80 legallens-frontend:local
+docker run --rm -p 5173:8080 legallens-frontend:local
 ```
 
-The API URL is embedded in the frontend at build time. Use the backend address reachable by the user's browser for `VITE_API_BASE_URL`; when the backend publishes port 8000 on this same computer, `http://localhost:8000` works.
+Open `http://localhost:5173`. For this local Docker example, the URL is embedded at build time as `http://localhost:8000`, which must be reachable from the browser.
+
+## Deploy to AKS
+
+On a push to `main`, CI builds and publishes the frontend image to `legallensacs.azurecr.io/legallens-frontend` tagged with the commit SHA. After CI succeeds, CD deploys that same image to the `aks-legallens` cluster. The frontend is exposed through a public Azure LoadBalancer service; its Nginx server serves the built app and proxies `/api`, `/health`, and `/ready` to the internal backend service. The deployment workflow reports the public IP in its GitHub Actions summary.
+
+See the [AKS deployment guide](../deploy/README.md) for the OIDC identity and GitHub secrets required before the first deployment.
 ## Connected functionality and limits
 
 - Conversations and user turns load from and persist to the backend. Conversation history remains after a browser refresh.
