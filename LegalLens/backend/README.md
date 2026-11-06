@@ -32,7 +32,7 @@ SQLite is the current local persistence adapter. Extracted document text and cit
 
 ## Deploy to AKS
 
-The repository's GitHub Actions workflows build and publish the backend image to `legallensacs.azurecr.io/legallens-backend` with the full commit SHA as its tag. After CI passes on `main`, the CD workflow deploys that same image to the `legallens` namespace in the `aks-legallens` cluster. See the [deployment guide](../deploy/README.md) for the Azure OIDC and GitHub secret setup required for the first run.
+The repository's GitHub Actions workflows build and publish the backend image to `legallensacs.azurecr.io/legallens-backend` with the full commit SHA as its tag. After CI passes on `master`, the CD workflow deploys that same image to the `legallens` namespace in the `aks-legallens` cluster. See the [deployment guide](../deploy/README.md) for the Azure OIDC and GitHub secret setup required for the first run.
 
 In AKS, `LEGALLENS_DB_PATH` and `LEGALLENS_STORAGE_DIR` point to an 8 GiB persistent volume claim. The deployment intentionally runs one backend replica because SQLite and the disk are single-writer. The volume persists across pod replacements, but it is not a backup; configure backups before storing data that must be retained. The API is reachable inside the cluster through the `legallens-backend` service, and the frontend's Nginx proxy forwards API requests to it.
 

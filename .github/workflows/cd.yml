@@ -1,11 +1,11 @@
 name: LegalLens CD
 
-# Deploy the exact commit that passed the LegalLens CI workflow on main.
+# Deploy the exact commit that passed the LegalLens CI workflow on master.
 on:
   workflow_run:
     workflows: [LegalLens CI]
     types: [completed]
-    branches: [main]
+    branches: [master]
 
 permissions:
   contents: read

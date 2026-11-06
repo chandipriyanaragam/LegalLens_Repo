@@ -38,7 +38,7 @@ Open `http://localhost:5173`. For this local Docker example, the URL is embedded
 
 ## Deploy to AKS
 
-On a push to `main`, CI builds and publishes the frontend image to `legallensacs.azurecr.io/legallens-frontend` tagged with the commit SHA. After CI succeeds, CD deploys that same image to the `aks-legallens` cluster. The frontend is exposed through a public Azure LoadBalancer service; its Nginx server serves the built app and proxies `/api`, `/health`, and `/ready` to the internal backend service. The deployment workflow reports the public IP in its GitHub Actions summary.
+On a push to `master`, CI builds and publishes the frontend image to `legallensacs.azurecr.io/legallens-frontend` tagged with the commit SHA. After CI succeeds, CD deploys that same image to the `aks-legallens` cluster. The frontend is exposed through a public Azure LoadBalancer service; its Nginx server serves the built app and proxies `/api`, `/health`, and `/ready` to the internal backend service. The deployment workflow reports the public IP in its GitHub Actions summary.
 
 See the [AKS deployment guide](../deploy/README.md) for the OIDC identity and GitHub secrets required before the first deployment.
 ## Connected functionality and limits

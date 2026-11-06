@@ -1,11 +1,11 @@
 name: LegalLens CI
 
-# Run CI for proposed changes to main, updates to main, or manual requests.
+# Run CI for proposed changes to master, updates to master, or manual requests.
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 # Keep the workflow read-only against repository contents.
@@ -83,7 +83,7 @@ jobs:
   # Publish immutable images only after both application builds and backend tests pass.
   publish-images:
     name: Publish SHA-tagged images to Azure Container Registry
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [frontend, backend]
     runs-on: ubuntu-latest
     permissions:
