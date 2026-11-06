@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import sqlite3
 import shutil
-from uuid import uuid4
 import zipfile
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
